@@ -1,15 +1,18 @@
-import os, asyncio, subprocess
+import os, re, asyncio, subprocess
 from PIL import Image, ImageEnhance
 import edge_tts
 
-TITLE = os.environ.get("SHORTS_TITLE", "10초 일본어 #Shorts").replace("\r", "").replace("\n", " ").strip()
-HOOK = os.environ.get("SHORTS_HOOK", "일본 친구랑 헤어질 때 자연스럽게 인사할 때").replace("\r", "").replace("\n", " ").strip()
-WORD = os.environ.get("SHORTS_WORD", "お願いします").replace("\r", "").replace("\n", " ").strip()
-PRON = os.environ.get("SHORTS_PRON", "おねがいします  [ 오네가이시마스 ]").replace("\r", "").replace("\n", " ").strip()
-MEANING = os.environ.get("SHORTS_MEANING", "부탁합니다, 주세요").replace("\r", "").replace("\n", " ").strip()
-EXAMPLE = os.environ.get("SHORTS_EXAMPLE", "お水をお願いします。").replace("\r", "").replace("\n", " ").strip()
-EXAMPLE_PRON = os.environ.get("SHORTS_EXAMPLE_PRON", "오미즈오 오네가이시마스").replace("\r", "").replace("\n", " ").strip()
-EXAMPLE_KO = os.environ.get("SHORTS_EXAMPLE_KO", "물 좀 부탁드립니다.").replace("\r", "").replace("\n", " ").strip()
+def clean_str(val):
+    return re.sub(r'[\r\n\t\x00-\x1f\x7f]', '', str(val)).strip()
+
+TITLE = clean_str(os.environ.get("SHORTS_TITLE", "10초 일본어 #Shorts"))
+HOOK = clean_str(os.environ.get("SHORTS_HOOK", "일본 친구랑 헤어질 때 자연스럽게 인사할 때"))
+WORD = clean_str(os.environ.get("SHORTS_WORD", "お願いします"))
+PRON = clean_str(os.environ.get("SHORTS_PRON", "おねがいします  [ 오네가이시마스 ]"))
+MEANING = clean_str(os.environ.get("SHORTS_MEANING", "부탁합니다, 주세요"))
+EXAMPLE = clean_str(os.environ.get("SHORTS_EXAMPLE", "お水をお願いします。"))
+EXAMPLE_PRON = clean_str(os.environ.get("SHORTS_EXAMPLE_PRON", "오미즈오 오네가이시마스"))
+EXAMPLE_KO = clean_str(os.environ.get("SHORTS_EXAMPLE_KO", "물 좀 부탁드립니다."))
 
 VOICE_JP = "ja-JP-NanamiNeural"
 VOICE_KO = "ko-KR-SunHiNeural"
@@ -24,7 +27,7 @@ def get_duration(filename):
     return float(subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout)
 
 def split_ko_2lines(text, max_chars=14):
-    clean = " ".join(text.split())
+    clean = " ".join(clean_str(text).split())
     words, lines, current = clean.split(" "), [], ""
     for w in words:
         if len(current) + len(w) + 1 <= max_chars:
@@ -37,15 +40,15 @@ def split_ko_2lines(text, max_chars=14):
                 break
     if current and len(lines) < 2:
         lines.append(current)
-    line1 = lines[0] if len(lines) > 0 else ""
-    line2 = lines[1] if len(lines) > 1 else ""
-    return line1.strip(), line2.strip()
+    line1 = clean_str(lines[0]) if len(lines) > 0 else ""
+    line2 = clean_str(lines[1]) if len(lines) > 1 else ""
+    return line1, line2
 
 def split_jp_2lines(text, max_chars=18):
-    clean = text.strip()
+    clean = clean_str(text)
     if len(clean) <= max_chars:
         return clean, ""
-    return clean[:max_chars].strip(), clean[max_chars:max_chars*2].strip()
+    return clean_str(clean[:max_chars]), clean_str(clean[max_chars:max_chars*2])
 
 def prepare_bg(out_path="final_bg.jpg"):
     for fname in ["bg.jpg", "bg.png", "bg.jpeg"]:
@@ -56,9 +59,8 @@ def prepare_bg(out_path="final_bg.jpg"):
     Image.new("RGB", (1080, 1920), color=(15, 23, 42)).save(out_path)
 
 def write_line(filename, text):
-    clean = text.replace("\r", "").replace("\n", "").strip()
     with open(filename, "w", encoding="utf-8") as f:
-        f.write(clean)
+        f.write(clean_str(text))
 
 async def main():
     prepare_bg("final_bg.jpg")
@@ -89,11 +91,11 @@ async def main():
     if not os.path.exists(font_ko):
         font_ko = font_cjk
 
-    hira_part, kor_pron_part = PRON, ""
+    hira_part, kor_pron_part = clean_str(PRON), ""
     if "[" in PRON:
         parts = PRON.split("[", 1)
-        hira_part = parts[0].strip()
-        kor_pron_part = "[" + parts[1].strip()
+        hira_part = clean_str(parts[0])
+        kor_pron_part = "[" + clean_str(parts[1])
     if hira_part == WORD:
         hira_part = ""
 
@@ -133,7 +135,7 @@ async def main():
         f"drawtext=fontfile={font_ko}:textfile=ex_ko_2.txt:fontcolor=#00E676:fontsize=52:borderw=5:bordercolor=black:x=(w-text_w)/2:y=1448:enable='gte(t,{t_example})'"
     )
     subprocess.run(["ffmpeg", "-y", "-loop", "1", "-i", "final_bg.jpg", "-i", "full_audio.mp3", "-vf", vf, "-t", f"{total_dur}", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "output.mp4"], check=True)
-    print("네모 박스 완전 제거된 일본어 쇼츠 완료: output.mp4", flush=True)
+    print("제어문자 완전 제거 완료: output.mp4", flush=True)
 
 if __name__ == "__main__":
     asyncio.run(main())
