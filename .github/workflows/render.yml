@@ -16,7 +16,6 @@ jobs:
           SHORTS_TITLE: ${{ github.event.client_payload.title }}
           SHORTS_HOOK: ${{ github.event.client_payload.hook }}
           SHORTS_WORD: ${{ github.event.client_payload.word }}
-          SHORTS_PHONETIC: ${{ github.event.client_payload.phonetic }}
           SHORTS_PRON: ${{ github.event.client_payload.pron }}
           SHORTS_MEANING: ${{ github.event.client_payload.meaning }}
           SHORTS_EXAMPLE: ${{ github.event.client_payload.example }}
