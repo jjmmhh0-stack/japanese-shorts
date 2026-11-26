@@ -2,14 +2,14 @@ import os, asyncio, subprocess
 from PIL import Image, ImageEnhance
 import edge_tts
 
-TITLE = os.environ.get("SHORTS_TITLE", "10초 일본어 #Shorts")
-HOOK = os.environ.get("SHORTS_HOOK", "일본 여행 가서 식당 주문할 때")
-WORD = os.environ.get("SHORTS_WORD", "お願いします")
-PRON = os.environ.get("SHORTS_PRON", "おねがいします  [ 오네가이시마스 ]")
-MEANING = os.environ.get("SHORTS_MEANING", "부탁합니다, 주세요")
-EXAMPLE = os.environ.get("SHORTS_EXAMPLE", "お水をお願いします。")
-EXAMPLE_PRON = os.environ.get("SHORTS_EXAMPLE_PRON", "오미즈오 오네가이시마스")
-EXAMPLE_KO = os.environ.get("SHORTS_EXAMPLE_KO", "물 좀 부탁드립니다.")
+TITLE = os.environ.get("SHORTS_TITLE", "10초 일본어 #Shorts").replace("\r", "").strip()
+HOOK = os.environ.get("SHORTS_HOOK", "일본 친구랑 헤어질 때 자연스럽게 인사할 때").replace("\r", "").strip()
+WORD = os.environ.get("SHORTS_WORD", "お願いします").replace("\r", "").strip()
+PRON = os.environ.get("SHORTS_PRON", "おねがいします  [ 오네가이시마스 ]").replace("\r", "").strip()
+MEANING = os.environ.get("SHORTS_MEANING", "부탁합니다, 주세요").replace("\r", "").strip()
+EXAMPLE = os.environ.get("SHORTS_EXAMPLE", "お水をお願いします。").replace("\r", "").strip()
+EXAMPLE_PRON = os.environ.get("SHORTS_EXAMPLE_PRON", "오미즈오 오네가이시마스").replace("\r", "").strip()
+EXAMPLE_KO = os.environ.get("SHORTS_EXAMPLE_KO", "물 좀 부탁드립니다.").replace("\r", "").strip()
 
 VOICE_JP = "ja-JP-NanamiNeural"
 VOICE_KO = "ko-KR-SunHiNeural"
@@ -24,12 +24,14 @@ def get_duration(filename):
     return float(subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout)
 
 def wrap_ko(text, max_chars=15, max_lines=3):
-    words, lines, current = text.split(), [], ""
+    clean = " ".join(text.replace("\r", "").replace("\n", " ").split())
+    words, lines, current = clean.split(" "), [], ""
     for w in words:
         if len(current) + len(w) + 1 <= max_chars:
             current = (current + " " + w).strip()
         else:
-            lines.append(current)
+            if current:
+                lines.append(current)
             current = w
             if len(lines) >= max_lines:
                 break
@@ -37,13 +39,14 @@ def wrap_ko(text, max_chars=15, max_lines=3):
         lines.append(current)
     return "\n".join(lines)
 
-def wrap_jp(text, max_chars=14, max_lines=2):
+def wrap_jp(text, max_chars=15, max_lines=2):
+    clean = text.replace("\r", "").replace("\n", "").strip()
     lines = []
-    while len(text) > max_chars and len(lines) < max_lines - 1:
-        lines.append(text[:max_chars])
-        text = text[max_chars:]
-    if text:
-        lines.append(text[:max_chars])
+    while len(clean) > max_chars and len(lines) < max_lines - 1:
+        lines.append(clean[:max_chars])
+        clean = clean[max_chars:]
+    if clean:
+        lines.append(clean[:max_chars])
     return "\n".join(lines)
 
 def prepare_bg(out_path="final_bg.jpg"):
@@ -51,7 +54,6 @@ def prepare_bg(out_path="final_bg.jpg"):
         if os.path.exists(fname):
             img = Image.open(fname).convert("RGB").resize((1080, 1920), Image.LANCZOS)
             ImageEnhance.Brightness(img).enhance(0.55).save(out_path, quality=92)
-            print(f"사용자 배경 적용 완료: {fname}", flush=True)
             return
     Image.new("RGB", (1080, 1920), color=(15, 23, 42)).save(out_path)
 
@@ -89,18 +91,20 @@ async def main():
         parts = PRON.split("[", 1)
         hira_part = parts[0].strip()
         kor_pron_part = "[" + parts[1].strip()
+    if hira_part == WORD:
+        hira_part = ""
 
-    with open("hook.txt", "w", encoding="utf-8") as f: f.write(wrap_ko(HOOK, 15, 3))
-    with open("word.txt", "w", encoding="utf-8") as f: f.write(wrap_jp(WORD.strip(), 11, 1))
-    with open("hira.txt", "w", encoding="utf-8") as f: f.write(hira_part)
-    with open("kor_pron.txt", "w", encoding="utf-8") as f: f.write(kor_pron_part)
-    with open("meaning.txt", "w", encoding="utf-8") as f: f.write(wrap_ko(MEANING, 13, 2))
-    with open("ex_jp.txt", "w", encoding="utf-8") as f: f.write(wrap_jp(EXAMPLE, 18, 2))
-    with open("ex_pron.txt", "w", encoding="utf-8") as f: f.write(wrap_ko(EXAMPLE_PRON, 20, 2))
-    with open("ex_ko.txt", "w", encoding="utf-8") as f: f.write(wrap_ko(EXAMPLE_KO, 17, 2))
+    with open("hook.txt", "w", encoding="utf-8", newline="\n") as f: f.write(wrap_ko(HOOK, 14, 2))
+    with open("word.txt", "w", encoding="utf-8", newline="\n") as f: f.write(wrap_jp(WORD, 11, 1))
+    with open("hira.txt", "w", encoding="utf-8", newline="\n") as f: f.write(hira_part)
+    with open("kor_pron.txt", "w", encoding="utf-8", newline="\n") as f: f.write(kor_pron_part)
+    with open("meaning.txt", "w", encoding="utf-8", newline="\n") as f: f.write(wrap_ko(MEANING, 13, 2))
+    with open("ex_jp.txt", "w", encoding="utf-8", newline="\n") as f: f.write(wrap_jp(EXAMPLE, 18, 2))
+    with open("ex_pron.txt", "w", encoding="utf-8", newline="\n") as f: f.write(wrap_ko(EXAMPLE_PRON, 20, 2))
+    with open("ex_ko.txt", "w", encoding="utf-8", newline="\n") as f: f.write(wrap_ko(EXAMPLE_KO, 16, 2))
 
     vf = (
-        f"drawtext=fontfile={font_ko}:textfile=hook.txt:fontcolor=white:fontsize=58:borderw=6:bordercolor=black:x=(w-text_w)/2:y=150:line_spacing=16,"
+        f"drawtext=fontfile={font_ko}:textfile=hook.txt:fontcolor=white:fontsize=60:borderw=6:bordercolor=black:x=(w-text_w)/2:y=190:line_spacing=18,"
         f"drawtext=fontfile={font_cjk}:textfile=word.txt:fontcolor=#00E5FF:fontsize=105:borderw=8:bordercolor=black:x=(w-text_w)/2:y=480:enable='gte(t,{t_word})',"
         f"drawtext=fontfile={font_cjk}:textfile=hira.txt:fontcolor=#E0E0E0:fontsize=46:borderw=4:bordercolor=black:x=(w-text_w)/2:y=630:enable='gte(t,{t_word})',"
         f"drawtext=fontfile={font_ko}:textfile=kor_pron.txt:fontcolor=#B2EBF2:fontsize=48:borderw=4:bordercolor=black:x=(w-text_w)/2:y=690:enable='gte(t,{t_word})',"
@@ -110,7 +114,7 @@ async def main():
         f"drawtext=fontfile={font_ko}:textfile=ex_ko.txt:fontcolor=#00E676:fontsize=52:borderw=5:bordercolor=black:x=(w-text_w)/2:y=1390:line_spacing=16:enable='gte(t,{t_example})'"
     )
     subprocess.run(["ffmpeg", "-y", "-loop", "1", "-i", "final_bg.jpg", "-i", "full_audio.mp3", "-vf", vf, "-t", f"{total_dur}", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "output.mp4"], check=True)
-    print("겹침 없는 일본어 쇼츠 렌더링 완료: output.mp4", flush=True)
+    print("일본어 쇼츠 완벽 수정 완료: output.mp4", flush=True)
 
 if __name__ == "__main__":
     asyncio.run(main())
